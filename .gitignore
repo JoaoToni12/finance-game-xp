@@ -1,0 +1,4 @@
+.DS_Store Thumbs.db
+node_modules/ venv/ pycache/ .dart_tool/ build/
+.env .env.local *.key
+firebase/ 4
