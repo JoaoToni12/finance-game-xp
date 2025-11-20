@@ -12,6 +12,7 @@ Armazena o perfil público e estado do jogo do usuário.
 - `email` (string): Email do usuário.
 - `currentXp` (number): Total de XP acumulado.
 - `level` (number): Nível atual (calculado baseado no XP).
+- `fcmToken` (string): Token para notificações push.
 - `createdAt` (timestamp).
 
 ### 2. `transactions`
@@ -21,6 +22,7 @@ Registra os gastos enviados pelo usuário para análise da IA.
 - `amount` (number): Valor extraído.
 - `category` (string): Categoria definida pela IA (ex: "Alimentação").
 - `isProcessed` (boolean): Se a IA já analisou e pontuou.
+- `aiFeedback` (string): O feedback da IA sobre o gasto.
 - `timestamp` (timestamp).
 
 ### 3. `quests`
@@ -31,9 +33,8 @@ Missões disponíveis para o usuário (definidas pelo Gilberto).
 - `xpReward` (number): Quanto XP vale.
 - `type` (string): "daily", "weekly", "achievement".
 
-### 4. `user_quests` (Sub-collection de users ou Root collection)
-Rastreia o progresso de um usuário em uma missão específica.
-- `userId` (string)
+### 4. `user_quests` (Sub-coleção de `users`)
+Rastreia o progresso de um usuário em uma missão específica. Fica em `users/{userId}/user_quests/{questId}`.
 - `questId` (string)
 - `progress` (number): Valor atual (ex: 20/50).
 - `status` (string): "active", "completed".
