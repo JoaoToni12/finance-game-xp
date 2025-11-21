@@ -47,3 +47,17 @@ Histórico de ganhos de XP para auditoria e animações de "Level Up".
 - `source` (string): "transaction_analysis", "quest_completion".
 - `relatedId` (string): ID da transação ou quest.
 - `timestamp` (timestamp).
+
+## Fluxo de Dados (Diagrama)
+```mermaid
+sequenceDiagram
+    participant App as App (Frontend)
+    participant Func as Cloud Functions
+    participant IA as Google Gemini
+    participant DB as Firestore
+
+    App->>Func: Envia texto ("Gastei 30 no BK")
+    Func->>IA: Envia prompt de categorização
+    IA-->>Func: Retorna JSON {categoria: "Lazer", feedback: "..."}
+    Func->>DB: Salva transação e atualiza XP
+    DB-->>App: Notifica novo saldo/XP
