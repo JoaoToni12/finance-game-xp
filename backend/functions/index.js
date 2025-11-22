@@ -1,32 +1,102 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+const { onCall } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { setGlobalOptions } = require("firebase-functions/v2");
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
-
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
+// Configuração Global
 setGlobalOptions({ maxInstances: 10 });
+initializeApp();
+const db = getFirestore();
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+// ---------------------------------------------------------
+// 1. CONFIGURAÇÃO DA IA (GEMINI)
+// ---------------------------------------------------------
+// IMPORTANTE: Em produção usariamos defineSecret, mas para o MVP vai hardcoded.
+const API_KEY = "AIzaSyDDXKAoWoAbZxYrvf0rgkaobg4QXsEulhA";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+// ---------------------------------------------------------
+// 2. FUNÇÃO: ANALISAR GASTO (Chamada pelo Front do Henri)
+// ---------------------------------------------------------
+exports.analyzeExpense = onCall(async (request) => {
+    // O Henri vai mandar { text: "Gastei 50 reais no Mcdonalds" }
+    const userText = request.data.text;
+
+    if (!userText) {
+        return { error: "Texto não fornecido." };
+    }
+
+// DIAGNÓSTICO: Vamos ver no log se a chave está sendo lida (mostra só os 4 primeiros chars)
+    console.log(`🔑 Usando chave iniciada em: ${API_KEY.substring(0,4)}...`);
+    console.log(`🤖 Tentando acessar modelo para texto: ${userText}`);
+
+    try {
+        // 👇 AQUI ESTAVA O ERRO. MUDE PARA O 2.5 👇
+        const modelName = "models/gemini-2.5-flash"; 
+        
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        const prompt = `
+            Você é o Gui.IA, um assistente financeiro para jovens.
+            Analise a frase: "${userText}".
+            Retorne APENAS um JSON (sem markdown) com:
+            {
+                "amount": (numero, valor gasto. Se não achar, null),
+                "category": (string, ex: "Alimentação", "Transporte", "Lazer"),
+                "isWaste": (boolean, true se for supérfluo/besteira, false se for essencial),
+                "feedback": (string, curto e divertido, max 15 palavras. Se for gasto ruim, dê uma bronca leve. Se for bom, elogie.)
+            }
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
+
+        // Limpeza básica para garantir JSON puro
+        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        
+        const data = JSON.parse(text);
+
+        return data; 
+        // O Frontend recebe isso e salva no banco depois de confirmar com o usuário.
+
+    } catch (error) {
+        console.error("Erro na IA:", error);
+        return { error: "A IA dormiu no ponto. Tente de novo." };
+    }
+});
+
+// ---------------------------------------------------------
+// 3. FUNÇÃO: CALCULAR XP (Gatilho do Banco)
+// ---------------------------------------------------------
+exports.calculateXp = onDocumentCreated("transactions/{transactionId}", async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const data = snapshot.data();
+    const userId = data.userId;
+    const amount = parseFloat(data.amount);
+    const isWaste = data.isWaste === true;
+
+    if (!userId || !amount) return;
+
+    // Regra de Negócio: 10% XP para supérfluo, 100% para essencial
+    let xpEarned = isWaste ? Math.floor(amount * 0.1) : Math.floor(amount);
+    if (xpEarned < 1) xpEarned = 1;
+
+    const userRef = db.collection("users").doc(userId);
+
+    try {
+        await userRef.set({
+            currentXp: FieldValue.increment(xpEarned),
+            level: FieldValue.increment(0), // Placeholder para lógica de nível futura
+            lastUpdate: FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log(`✅ XP Adicionado: +${xpEarned} para ${userId}`);
+    } catch (err) {
+        console.error("Erro no XP:", err);
+    }
+});
