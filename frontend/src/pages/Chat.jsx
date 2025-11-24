@@ -1,5 +1,8 @@
-import { Send, Sparkles, Check } from "lucide-react";
+import { Send, Sparkles, Check, LoaderCircle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { db, functions } from "../firebaseConfig";
+import { httpsCallable } from "firebase/functions";
+import { collection, addDoc } from "firebase/firestore";
 
 const initialMessages = [
   {
@@ -42,6 +45,7 @@ const initialMessages = [
 export default function Chat() {
   const [messages, setMessages] = useState(initialMessages);
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -52,28 +56,61 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
 
+    const text = inputValue;
     const newMessage = {
       id: messages.length + 1,
       type: "user",
-      content: inputValue,
+      content: text,
       timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages([...messages, newMessage]);
+    setMessages((prev) => [...prev, newMessage]);
     setInputValue("");
+    setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const analyzeExpense = httpsCallable(functions, 'analyzeExpense');
+      const result = await analyzeExpense({ text });
+      const data = result.data;
+
       const aiResponse = {
         id: messages.length + 2,
         type: "ai",
-        content: "Entendi! (Simulação)",
+        content: data.feedback,
+        transaction: {
+          category: data.category,
+          amount: data.amount,
+          type: "expense",
+        },
         timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       };
+      
+      await addDoc(collection(db, "transactions"), {
+        userId: "user_teste",
+        description: text,
+        amount: data.amount,
+        category: data.category,
+        isWaste: data.isWaste,
+        createdAt: new Date(),
+      });
+
       setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+
+    } catch (error) {
+      console.error("Error calling analyzeExpense or saving transaction:", error);
+      const errorResponse = {
+        id: messages.length + 2,
+        type: "ai",
+        content: "Desculpe, não consegui processar sua solicitação. Tente novamente.",
+        timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -149,6 +186,18 @@ export default function Chat() {
             </div>
           ))}
         </div>
+        {isLoading && (
+          <div className="flex justify-start mt-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-500">
+                <Sparkles className="size-3.5 text-black fill-black" />
+              </div>
+              <div className="p-4 shadow-sm border border-zinc-800 bg-zinc-900 text-zinc-200 rounded-2xl rounded-tl-sm">
+                <LoaderCircle className="animate-spin size-5 text-zinc-400" />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

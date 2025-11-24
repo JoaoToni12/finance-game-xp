@@ -1,2 +1,5 @@
-node_modules/
-*.local
+
+# Ignore sensitive and local development files
+debug-ai.js
+node_modules
+.DS_Store

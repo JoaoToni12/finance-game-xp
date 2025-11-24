@@ -20,22 +20,22 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 // ---------------------------------------------------------
 // 2. FUNÇÃO: ANALISAR GASTO (Chamada pelo Front do Henri)
 // ---------------------------------------------------------
-exports.analyzeExpense = onCall(async (request) => {
-    // O Henri vai mandar { text: "Gastei 50 reais no Mcdonalds" }
-    const userText = request.data.text;
-
-    if (!userText) {
-        return { error: "Texto não fornecido." };
-    }
-
-// DIAGNÓSTICO: Vamos ver no log se a chave está sendo lida (mostra só os 4 primeiros chars)
-    console.log(`🔑 Usando chave iniciada em: ${API_KEY.substring(0,4)}...`);
-    console.log(`🤖 Tentando acessar modelo para texto: ${userText}`);
+exports.analyzeExpense = onCall({ cors: true }, async (request) => {
+    console.log("🚀 Function analyzeExpense invoked. Request data:", request.data);
 
     try {
-        // 👇 AQUI ESTAVA O ERRO. MUDE PARA O 2.5 👇
+        const userText = request.data.text;
+
+        if (!userText) {
+            console.log("⚠️  Texto não fornecido na requisição.");
+            return { error: "Texto não fornecido." };
+        }
+
+        // DIAGNÓSTICO: Vamos ver no log se a chave está sendo lida (mostra só os 4 primeiros chars)
+        console.log(`🔑 Usando chave iniciada em: ${API_KEY.substring(0,4)}...`);
+        console.log(`🤖 Tentando acessar modelo para texto: ${userText}`);
+
         const modelName = "models/gemini-2.5-flash"; 
-        
         const model = genAI.getGenerativeModel({ model: modelName });
 
         const prompt = `
@@ -57,14 +57,14 @@ exports.analyzeExpense = onCall(async (request) => {
         // Limpeza básica para garantir JSON puro
         text = text.replace(/```json/g, "").replace(/```/g, "").trim();
         
+        console.log("✅ IA retornou JSON:", text);
         const data = JSON.parse(text);
 
-        return data; 
-        // O Frontend recebe isso e salva no banco depois de confirmar com o usuário.
+        return data;
 
     } catch (error) {
-        console.error("Erro na IA:", error);
-        return { error: "A IA dormiu no ponto. Tente de novo." };
+        console.error("❌ Erro geral na função analyzeExpense:", error);
+        return { error: "Ocorreu um erro inesperado no servidor. Tente novamente." };
     }
 });
 

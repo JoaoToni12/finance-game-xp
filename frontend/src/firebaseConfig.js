@@ -1,3 +1,7 @@
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAxitpsrRnJz1hAU7Zy2DgkhdZ_Iu-Fggc",
   authDomain: "gui-ia-finance-joao-72b99.firebaseapp.com",
@@ -9,4 +13,5 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const functions = getFunctions(app, 'us-central1');
 // Adicione exports extras se precisar (auth, etc)

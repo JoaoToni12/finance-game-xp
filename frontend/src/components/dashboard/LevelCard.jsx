@@ -1,10 +1,32 @@
 import { Zap, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { db } from "../../firebaseConfig";
+import { doc, onSnapshot } from "firebase/firestore";
 
 export default function LevelCard() {
-  const currentXP = 2450;
-  const nextLevelXP = 3000;
-  const level = 7;
-  const progress = (currentXP / nextLevelXP) * 100;
+  const [userData, setUserData] = useState({
+    level: 0,
+    xp: 0,
+    nextLevelXp: 100,
+  });
+
+  useEffect(() => {
+    const userDocRef = doc(db, "users", "user_teste");
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setUserData({
+          level: data.level || 0,
+          xp: data.currentXp || 0,
+          nextLevelXp: data.nextLevelXp || 100,
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const progress = (userData.xp / userData.nextLevelXp) * 100;
 
   return (
     <div className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 p-5 relative overflow-hidden">
@@ -18,19 +40,19 @@ export default function LevelCard() {
           </div>
           <div>
             <p className="text-zinc-400 text-xs font-medium">Seu Nível</p>
-            <h3 className="text-white font-bold text-lg">Poupador Nível {level}</h3>
+            <h3 className="text-white font-bold text-lg">Poupador Nível {userData.level}</h3>
           </div>
         </div>
         
         <div className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-black/50 backdrop-blur-sm px-3 py-1.5">
           <Zap size={14} className="text-yellow-500 fill-yellow-500" />
-          <span className="text-white font-mono text-xs font-bold">{currentXP} XP</span>
+          <span className="text-white font-mono text-xs font-bold">{userData.xp} XP</span>
         </div>
       </div>
 
       <div className="space-y-2 relative z-10">
         <div className="flex items-center justify-between text-xs font-medium">
-          <span className="text-zinc-400">Progresso para Nível {level + 1}</span>
+          <span className="text-zinc-400">Progresso para Nível {userData.level + 1}</span>
           <span className="text-yellow-500">{Math.floor(progress)}%</span>
         </div>
         
@@ -42,7 +64,7 @@ export default function LevelCard() {
         </div>
         
         <p className="text-zinc-500 text-[10px] text-right font-mono">
-          {currentXP.toLocaleString('pt-BR')} / {nextLevelXP.toLocaleString('pt-BR')} XP
+          {userData.xp.toLocaleString('pt-BR')} / {userData.nextLevelXp.toLocaleString('pt-BR')} XP
         </p>
       </div>
 
