@@ -43,3 +43,7 @@ Este repositório está organizado em um monorepo para facilitar a gestão e o d
 
 - **João:** Backend Developer
 - **Henri:** Frontend Developer
+
+## Observação
+
+A API disponível do código foi excluída para evitar vazamentos, à medida que uma nova está sendo criada em segredo e será atualizada na próxima versão, por isso o chat não estará funcional caso tentem rodar o projeto.
